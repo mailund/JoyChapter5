@@ -12,7 +12,7 @@ new_link(size_t link_size, struct generic_link *next)
 }
 
 void
-generic_push_new_link(REF(struct generic_link) list, size_t link_size)
+generic_push_new_link(struct generic_link **list, size_t link_size)
 {
   *list = new_link(sizeof(struct generic_link), *list);
 }
@@ -25,7 +25,8 @@ delete_link(struct list_iter itr)
   *itr.link = next;
 }
 
-void generic_free_linked_list(REF(struct generic_link) list)
+void
+generic_free_linked_list(struct generic_link **list)
 {
   while (*list) {
     struct generic_link *next = (*list)->next;
