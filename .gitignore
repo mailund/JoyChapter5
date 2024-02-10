@@ -1,3 +1,7 @@
+makebuild
+xcodebuild
+
+
 *_test
 
 # Prerequisites
