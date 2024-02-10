@@ -1,5 +1,7 @@
 makebuild
 xcodebuild
+build
+.cache
 
 
 *_test

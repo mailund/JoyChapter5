@@ -12,8 +12,6 @@ struct generic_link {
   struct generic_link *next;
 };
 
-#define NEW_LIST() NULL
-
 #define LINK_HEADER struct generic_link generic
 #define LIST_HEADER OWNER(struct generic_link) generic
 
@@ -24,6 +22,11 @@ struct generic_link {
 struct list_iter {
   struct generic_link **link;
 };
+
+#define NEW_LIST()                                                             \
+  {                                                                            \
+    .generic = NULL                                                            \
+  }
 
 static inline struct list_iter generic_list_begin(REF(struct generic_link) list)
 {
