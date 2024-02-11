@@ -1,11 +1,10 @@
 
-#include "generic_linked_list.h"
+#include "static_linked_list.h"
 
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-#define CALL(F, ...) F(__VA_ARGS__) // Invoke a macro argument as a call
+#include <string.h>
 
 #define GEN_STRUCTS(LIST_NAME, KEY_TYPE)                                       \
   struct LIST_NAME##_link {                                                    \
@@ -29,7 +28,7 @@
   {                                                                            \
     for (struct list_iter itr = list_begin(list); !list_end(itr);              \
          itr = list_next(itr)) {                                               \
-      CALL(FREE_KEY, cast_itr(struct LIST_NAME##_link, itr)->key);             \
+      FREE_KEY(cast_itr(struct LIST_NAME##_link, itr)->key);                   \
     }                                                                          \
     free_linked_list(list);                                                    \
     list->generic = NULL;                                                      \
@@ -42,8 +41,8 @@
     for (struct list_iter itr = list_begin(list); !list_end(itr);              \
          itr = list_next(itr)) {                                               \
       struct LIST_NAME##_link *link = void_cast(itr);                          \
-      if (CALL(IS_EQ, link->key, key)) {                                       \
-        CALL(FREE_KEY, link->key);                                             \
+      if (IS_EQ(link->key, key)) {                                             \
+        FREE_KEY(link->key);                                                   \
         delete_link(itr);                                                      \
         return;                                                                \
       }                                                                        \
@@ -57,7 +56,7 @@
     for (struct list_iter itr = list_begin(list); !list_end(itr);              \
          itr = list_next(itr)) {                                               \
       struct LIST_NAME##_link *link = void_cast(itr);                          \
-      if (CALL(IS_EQ, link->key, key)) {                                       \
+      if (IS_EQ(link->key, key)) {                                             \
         return true;                                                           \
       }                                                                        \
     }                                                                          \
@@ -73,10 +72,12 @@
 
 #define EQ_CMP(A, B) ((A) == (B))
 #define DEREF_EQ_CMP(A, B) (*(A) == *(B))
+#define STR_EQ(A, B) (strcmp(A, B) == 0)
 #define NOP_DESTRUCTOR(KEY)
 
 GEN_LIST(int, unsigned int, EQ_CMP, NOP_DESTRUCTOR);
 GEN_LIST(intp, unsigned int *, DEREF_EQ_CMP, free);
+GEN_LIST(str, char *, STR_EQ, free);
 
 static void
 test_int_list(void)
@@ -172,12 +173,70 @@ test_intp_list(void)
   intp_free_list(&owner);
 }
 
+static char *
+str_dup(const char *key)
+{
+  size_t n = strlen(key) + 1;
+  char *res = malloc(n);
+  strncpy(res, key, n);
+  return res;
+}
+
+static void
+test_str_list(void)
+{
+  const char *some_str[] = {
+      "a", "b", "c", "d", "e",
+  };
+  size_t n = sizeof(some_str) / sizeof(*some_str);
+  char *some_keys[n];
+  for (int i = 0; i < n; i++) {
+    some_keys[i] = str_dup(some_str[i]);
+  }
+
+  struct str_list owner = NEW_LIST();
+
+  for (unsigned int i = 0; i < n; i++) {
+    printf("inserting key %u\n", *some_keys[i]);
+    str_add_key(&owner, some_keys[i]);
+    some_keys[i] = NULL; // We moved it to the list
+  }
+  printf("\n");
+
+  for (unsigned int i = 0; i < n; i++) {
+    printf("is key %s in list? %d\n", some_str[i],
+           str_contains_key(&owner, some_str[i]));
+    assert(str_contains_key(&owner, some_str[i]));
+  }
+  printf("\n");
+
+  printf("Removing keys 'c' and 'd'\n");
+  str_delete_key(&owner, "c");
+  str_delete_key(&owner, "d");
+  printf("\n");
+
+  for (unsigned int i = 0; i < n; i++) {
+    printf("is key %s in &owner? %d\n", some_str[i],
+           str_contains_key(&owner, some_str[i]));
+    if (STR_EQ(some_str[i], "c") || STR_EQ(some_str[i], "d"))
+      assert(!str_contains_key(&owner, some_str[i]));
+    else
+      assert(str_contains_key(&owner, some_str[i]));
+  }
+  printf("\n");
+
+  str_free_list(&owner);
+}
+
 int
 main()
 {
-  printf("unsigned int list\n");
+  printf("generated unsigned int list\n");
   test_int_list();
-  printf("unsigned int* list\n");
+  printf("generated unsigned int* list\n");
   test_intp_list();
+  printf("generated char* list\n");
+  test_str_list();
+
   return EXIT_SUCCESS;
 }
