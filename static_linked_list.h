@@ -5,28 +5,28 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-struct generic_link {
-  struct generic_link *next;
+struct link {
+  struct link *next;
 };
 
-#define LINK_HEADER struct generic_link generic
-#define LIST_HEADER struct generic_link *generic
+#define LINK_HEADER struct link link
+#define LIST_HEADER struct link *head
 
-#define LINK_UPCAST(LINK) &((LINK)->generic)
-#define LIST_UPCAST(LIST) &((LIST)->generic)
+#define LINK_UPCAST(LINK) &((LINK)->next)
+#define LIST_UPCAST(LIST) &((LIST)->head)
 
 // Generic iteration
 struct list_iter {
-  struct generic_link **link;
+  struct link **link;
 };
 
 #define NEW_LIST()                                                             \
   {                                                                            \
-    .generic = NULL                                                            \
+    .head = NULL                                                               \
   }
 
 static inline struct list_iter
-generic_list_begin(struct generic_link **list)
+generic_list_begin(struct link **list)
 {
   return (struct list_iter){.link = list};
 }
@@ -47,10 +47,10 @@ list_next(struct list_iter itr)
 
 // Rest of the interface
 void
-generic_free_linked_list(struct generic_link **list);
+generic_free_linked_list(struct link **list);
 
 void
-generic_push_new_link(struct generic_link **list, size_t link_size);
+generic_push_new_link(struct link **list, size_t link_size);
 
 #define free_linked_list(LIST) generic_free_linked_list(LIST_UPCAST(LIST))
 #define push_new_link(LIST, LINK_SIZE)                                         \
@@ -84,7 +84,7 @@ delete_link(struct list_iter itr);
       FREE_KEY(cast_itr(struct LIST_NAME##_link, itr)->key);                   \
     }                                                                          \
     free_linked_list(list);                                                    \
-    list->generic = NULL;                                                      \
+    list->head = NULL;                                                         \
   }
 
 #define GEN_DELETE_KEY(LIST_NAME, KEY_TYPE, IS_EQ, FREE_KEY)                   \

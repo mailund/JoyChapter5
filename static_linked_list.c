@@ -3,33 +3,33 @@
 
 #include <stdlib.h>
 
-struct generic_link *
-new_link(size_t link_size, struct generic_link *next)
+struct link *
+new_link(size_t link_size, struct link *next)
 {
-  struct generic_link *link = malloc(link_size);
+  struct link *link = malloc(link_size);
   link->next = next;
   return link;
 }
 
 void
-generic_push_new_link(struct generic_link **list, size_t link_size)
+generic_push_new_link(struct link **list, size_t link_size)
 {
-  *list = new_link(sizeof(struct generic_link), *list);
+  *list = new_link(sizeof(struct link), *list);
 }
 
 void
 delete_link(struct list_iter itr)
 {
-  struct generic_link *next = (*itr.link)->next;
+  struct link *next = (*itr.link)->next;
   free(*itr.link);
   *itr.link = next;
 }
 
 void
-generic_free_linked_list(struct generic_link **list)
+generic_free_linked_list(struct link **list)
 {
   while (*list) {
-    struct generic_link *next = (*list)->next;
+    struct link *next = (*list)->next;
     free(*list);
     *list = next;
   }
