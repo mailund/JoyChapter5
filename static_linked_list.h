@@ -5,111 +5,85 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-struct link {
-  struct link *next;
-};
-struct list {
-  struct link *head;
-};
+// The generated data structure has a link structure with a next pointer and
+// a key value. A list a struct with a `head` member that points to a link.
+// An iterator is a pointer to a pointer to a link.
 
-#define LIST_UPCAST(LIST) &((LIST)->head)
+// clang-format off
+#define LINK(LIST_NAME) struct LIST_NAME##_link
+#define LIST(LIST_NAME) struct LIST_NAME##_list
+#define ITR(LIST) typeof(LIST->head) *
 
-// Generic iteration
-struct list_iter {
-  struct link **link;
-};
+#define NEW_LIST() { .head = NULL } // Initialiser that works for any list
 
-#define NEW_LIST()                                                             \
-  {                                                                            \
-    .head = NULL                                                               \
-  }
-
-static inline struct list_iter
-generic_list_begin(struct link **list)
-{
-  return (struct list_iter){.link = list};
-}
-#define list_begin(LIST) generic_list_begin(LIST_UPCAST(LIST))
-
-static inline bool
-list_end(struct list_iter itr)
-{
-  return !*itr.link;
-}
-static inline struct list_iter
-list_next(struct list_iter itr)
-{
-  return (struct list_iter){.link = &(*itr.link)->next};
-}
-
-#define list_head(LIST) ((void *)(*(LIST).link))
-
-// Rest of the interface
-void
-generic_free_linked_list(struct link **list);
-
-void
-generic_push_new_link(struct link **list, size_t link_size);
-
-#define free_linked_list(LIST) generic_free_linked_list(LIST_UPCAST(LIST))
-#define push_new_link(LIST, LINK_SIZE)                                         \
-  generic_push_new_link(LIST_UPCAST(LIST), LINK_SIZE)
-
-void
-delete_link(struct list_iter itr);
+#define ITR_BEG(LIST)  (&((LIST)->head))   // Turn list into iter
+#define ITR_END(ITR)   (!*(ITR))           // Check if we are at the end of the iteration
+#define ITR_NEXT(ITR)  (&((*(ITR))->next)) // Get next element in the iterator
+#define ITR_DEREF(ITR) (*(ITR))            // Get the current iterator element
+// clang-format on
 
 #define GEN_STRUCTS(LIST_NAME, KEY_TYPE)                                       \
-  struct LIST_NAME##_link {                                                    \
-    struct link link;                                                          \
+  LINK(LIST_NAME)                                                              \
+  {                                                                            \
+    LINK(LIST_NAME) * next;                                                    \
     KEY_TYPE key;                                                              \
   };                                                                           \
-  struct LIST_NAME##_list {                                                    \
-    struct link *head;                                                         \
+  LIST(LIST_NAME)                                                              \
+  {                                                                            \
+    LINK(LIST_NAME) * head;                                                    \
   };
 
+// Rest of the interface
+#define PUSH_LINK(ITR)                                                         \
+  do {                                                                         \
+    typeof(**ITR) *link = malloc(sizeof *link);                                \
+    link->next = *(ITR);                                                       \
+    *(ITR) = link;                                                             \
+  } while (0)
+
+#define DELETE_LINK(ITR)                                                       \
+  do {                                                                         \
+    typeof(**ITR) *next = (*(ITR))->next;                                      \
+    free(*(ITR));                                                              \
+    *(ITR) = next;                                                             \
+  } while (0)
+
 #define GEN_ADD_KEY(LIST_NAME, KEY_TYPE)                                       \
-  void LIST_NAME##_add_key(struct LIST_NAME##_list *list, KEY_TYPE key)        \
+  void LIST_NAME##_add_key(LIST(LIST_NAME) * list, KEY_TYPE key)               \
   {                                                                            \
-    push_new_link(list, sizeof(struct LIST_NAME##_link));                      \
-    struct LIST_NAME##_link *link = list_head(list_begin(list));               \
-    link->key = key;                                                           \
+    typeof(list->head) *itr = ITR_BEG(list);                                   \
+    PUSH_LINK(itr);                                                            \
+    ITR_DEREF(itr)->key = key;                                                 \
   }
 
 #define GEN_FREE_LIST(LIST_NAME, KEY_TYPE, FREE_KEY)                           \
-  void LIST_NAME##_free_list(struct LIST_NAME##_list *list)                    \
+  void LIST_NAME##_free_list(LIST(LIST_NAME) * list)                           \
   {                                                                            \
-    for (struct list_iter itr = list_begin(list); !list_end(itr);              \
-         itr = list_next(itr)) {                                               \
-      struct LIST_NAME##_link *link = list_head(itr);                          \
-      FREE_KEY(link->key);                                                     \
+    ITR(list) itr = ITR_BEG(list);                                             \
+    while (!ITR_END(itr)) {                                                    \
+      FREE_KEY(ITR_DEREF(itr)->key);                                           \
+      DELETE_LINK(itr);                                                        \
     }                                                                          \
-    free_linked_list(list);                                                    \
-    list->head = NULL;                                                         \
   }
 
 #define GEN_DELETE_KEY(LIST_NAME, KEY_TYPE, IS_EQ, FREE_KEY)                   \
-  void LIST_NAME##_delete_key(struct LIST_NAME##_list *list,                   \
-                              const KEY_TYPE key)                              \
+  void LIST_NAME##_delete_key(LIST(LIST_NAME) * list, const KEY_TYPE key)      \
   {                                                                            \
-    for (struct list_iter itr = list_begin(list); !list_end(itr);              \
-         itr = list_next(itr)) {                                               \
-      struct LIST_NAME##_link *link = list_head(itr);                          \
+    for (ITR(list) itr = ITR_BEG(list); !ITR_END(itr); itr = ITR_NEXT(itr)) {  \
+      LINK(LIST_NAME) *link = ITR_DEREF(itr);                                  \
       if (IS_EQ(link->key, key)) {                                             \
         FREE_KEY(link->key);                                                   \
-        delete_link(itr);                                                      \
+        DELETE_LINK(itr);                                                      \
         return;                                                                \
       }                                                                        \
     }                                                                          \
   }
 
 #define GEN_CONTAINS_KEY(LIST_NAME, KEY_TYPE, IS_EQ)                           \
-  bool LIST_NAME##_contains_key(struct LIST_NAME##_list *list,                 \
-                                const KEY_TYPE key)                            \
+  bool LIST_NAME##_contains_key(LIST(LIST_NAME) * list, const KEY_TYPE key)    \
   {                                                                            \
-    for (struct list_iter itr = list_begin(list); !list_end(itr);              \
-         itr = list_next(itr)) {                                               \
-      struct LIST_NAME##_link *link = list_head(itr);                          \
-      if (IS_EQ(link->key, key)) {                                             \
+    for (ITR(list) itr = ITR_BEG(list); !ITR_END(itr); itr = ITR_NEXT(itr)) {  \
+      if (IS_EQ(ITR_DEREF(itr)->key, key)) {                                   \
         return true;                                                           \
       }                                                                        \
     }                                                                          \
