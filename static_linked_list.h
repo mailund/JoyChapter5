@@ -8,11 +8,10 @@
 struct link {
   struct link *next;
 };
+struct list {
+  struct link *head;
+};
 
-#define LINK_HEADER struct link link
-#define LIST_HEADER struct link *head
-
-#define LINK_UPCAST(LINK) &((LINK)->next)
 #define LIST_UPCAST(LIST) &((LIST)->head)
 
 // Generic iteration
@@ -42,8 +41,8 @@ list_next(struct list_iter itr)
 {
   return (struct list_iter){.link = &(*itr.link)->next};
 }
-#define cast_itr(T, ITR) ((T *)(*(ITR).link))
-#define void_cast(ITR) cast_itr(void, ITR)
+
+#define list_head(LIST) ((void *)(*(LIST).link))
 
 // Rest of the interface
 void
@@ -61,18 +60,18 @@ delete_link(struct list_iter itr);
 
 #define GEN_STRUCTS(LIST_NAME, KEY_TYPE)                                       \
   struct LIST_NAME##_link {                                                    \
-    LINK_HEADER;                                                               \
+    struct link link;                                                          \
     KEY_TYPE key;                                                              \
   };                                                                           \
   struct LIST_NAME##_list {                                                    \
-    LIST_HEADER;                                                               \
+    struct link *head;                                                         \
   };
 
 #define GEN_ADD_KEY(LIST_NAME, KEY_TYPE)                                       \
   void LIST_NAME##_add_key(struct LIST_NAME##_list *list, KEY_TYPE key)        \
   {                                                                            \
     push_new_link(list, sizeof(struct LIST_NAME##_link));                      \
-    struct LIST_NAME##_link *link = void_cast(list_begin(list));               \
+    struct LIST_NAME##_link *link = list_head(list_begin(list));               \
     link->key = key;                                                           \
   }
 
@@ -81,7 +80,8 @@ delete_link(struct list_iter itr);
   {                                                                            \
     for (struct list_iter itr = list_begin(list); !list_end(itr);              \
          itr = list_next(itr)) {                                               \
-      FREE_KEY(cast_itr(struct LIST_NAME##_link, itr)->key);                   \
+      struct LIST_NAME##_link *link = list_head(itr);                          \
+      FREE_KEY(link->key);                                                     \
     }                                                                          \
     free_linked_list(list);                                                    \
     list->head = NULL;                                                         \
@@ -93,7 +93,7 @@ delete_link(struct list_iter itr);
   {                                                                            \
     for (struct list_iter itr = list_begin(list); !list_end(itr);              \
          itr = list_next(itr)) {                                               \
-      struct LIST_NAME##_link *link = void_cast(itr);                          \
+      struct LIST_NAME##_link *link = list_head(itr);                          \
       if (IS_EQ(link->key, key)) {                                             \
         FREE_KEY(link->key);                                                   \
         delete_link(itr);                                                      \
@@ -108,7 +108,7 @@ delete_link(struct list_iter itr);
   {                                                                            \
     for (struct list_iter itr = list_begin(list); !list_end(itr);              \
          itr = list_next(itr)) {                                               \
-      struct LIST_NAME##_link *link = void_cast(itr);                          \
+      struct LIST_NAME##_link *link = list_head(itr);                          \
       if (IS_EQ(link->key, key)) {                                             \
         return true;                                                           \
       }                                                                        \
