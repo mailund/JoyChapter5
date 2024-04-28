@@ -10,7 +10,6 @@
 // An iterator is a pointer to a pointer to a link.
 
 // clang-format off
-#define LINK(LIST_NAME) struct LIST_NAME##_link
 #define LIST(LIST_NAME) struct LIST_NAME##_list
 #define ITR(LIST) typeof(LIST->head) *
 
@@ -23,14 +22,12 @@
 // clang-format on
 
 #define GEN_STRUCTS(LIST_NAME, KEY_TYPE)                                       \
-  LINK(LIST_NAME)                                                              \
-  {                                                                            \
-    LINK(LIST_NAME) * next;                                                    \
+  struct LIST_NAME##_link {                                                    \
+    struct LIST_NAME##_link *next;                                             \
     KEY_TYPE key;                                                              \
   };                                                                           \
-  LIST(LIST_NAME)                                                              \
-  {                                                                            \
-    LINK(LIST_NAME) * head;                                                    \
+  struct LIST_NAME##_list {                                                    \
+    struct LIST_NAME##_link *head;                                             \
   };
 
 // Rest of the interface
@@ -51,9 +48,8 @@
 #define GEN_ADD_KEY(LIST_NAME, KEY_TYPE)                                       \
   void LIST_NAME##_add_key(LIST(LIST_NAME) * list, KEY_TYPE key)               \
   {                                                                            \
-    typeof(list->head) *itr = ITR_BEG(list);                                   \
-    PUSH_LINK(itr);                                                            \
-    ITR_DEREF(itr)->key = key;                                                 \
+    PUSH_LINK(ITR_BEG(list));                                                  \
+    ITR_DEREF(ITR_BEG(list))->key = key;                                       \
   }
 
 #define GEN_FREE_LIST(LIST_NAME, KEY_TYPE, FREE_KEY)                           \
@@ -70,9 +66,8 @@
   void LIST_NAME##_delete_key(LIST(LIST_NAME) * list, const KEY_TYPE key)      \
   {                                                                            \
     for (ITR(list) itr = ITR_BEG(list); !ITR_END(itr); itr = ITR_NEXT(itr)) {  \
-      LINK(LIST_NAME) *link = ITR_DEREF(itr);                                  \
-      if (IS_EQ(link->key, key)) {                                             \
-        FREE_KEY(link->key);                                                   \
+      if (IS_EQ(ITR_DEREF(itr)->key, key)) {                                   \
+        FREE_KEY(ITR_DEREF(itr)->key);                                         \
         DELETE_LINK(itr);                                                      \
         return;                                                                \
       }                                                                        \

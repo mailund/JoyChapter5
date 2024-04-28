@@ -11,7 +11,11 @@
 #define STR_EQ(A, B) (strcmp(A, B) == 0)
 #define NOP_DESTRUCTOR(KEY)
 
-GEN_LIST(int, unsigned int, EQ_CMP, NOP_DESTRUCTOR);
+GEN_LIST(int,            // name of the list type
+         unsigned int,   // underlying type
+         EQ_CMP,         // how we compare keys
+         NOP_DESTRUCTOR) // how we free keys;
+
 GEN_LIST(intp, unsigned int *, DEREF_EQ_CMP, free);
 GEN_LIST(str, char *, STR_EQ, free);
 
