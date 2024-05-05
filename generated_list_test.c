@@ -7,8 +7,6 @@
 #include <string.h>
 
 #define EQ_CMP(A, B) ((A) == (B))
-#define DEREF_EQ_CMP(A, B) (*(A) == *(B))
-#define STR_EQ(A, B) (strcmp(A, B) == 0)
 #define NOP_DESTRUCTOR(KEY)
 
 GEN_LIST(int,            // name of the list type
@@ -16,7 +14,10 @@ GEN_LIST(int,            // name of the list type
          EQ_CMP,         // how we compare keys
          NOP_DESTRUCTOR) // how we free keys;
 
+#define DEREF_EQ_CMP(A, B) (*(A) == *(B))
 GEN_LIST(intp, unsigned int *, DEREF_EQ_CMP, free);
+
+#define STR_EQ(A, B) (strcmp(A, B) == 0)
 GEN_LIST(str, char *, STR_EQ, free);
 
 static void

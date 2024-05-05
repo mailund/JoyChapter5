@@ -10,10 +10,10 @@
 // An iterator is a pointer to a pointer to a link.
 
 // clang-format off
+#define NEW_LIST() { .head = NULL } // Initialiser that works for any list
+
 #define LIST(LIST_NAME) struct LIST_NAME##_list
 #define ITR(LIST) typeof(LIST->head) *
-
-#define NEW_LIST() { .head = NULL } // Initialiser that works for any list
 
 #define ITR_BEG(LIST)  (&((LIST)->head))   // Turn list into iter
 #define ITR_END(ITR)   (!*(ITR))           // Check if we are at the end of the iteration
