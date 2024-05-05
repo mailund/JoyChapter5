@@ -1,5 +1,5 @@
 
-#include "static_linked_list.h"
+#include "generated_list.h"
 
 #include <assert.h>
 #include <stdio.h>

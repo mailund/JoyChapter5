@@ -31,7 +31,7 @@
   };
 
 // Rest of the interface
-#define PUSH_LINK(ITR)                                                         \
+#define PUSH_NEW_LINK(ITR)                                                     \
   do {                                                                         \
     typeof(**ITR) *link = malloc(sizeof *link);                                \
     link->next = *(ITR);                                                       \
@@ -48,7 +48,7 @@
 #define GEN_ADD_KEY(LIST_NAME, KEY_TYPE)                                       \
   void LIST_NAME##_add_key(LIST(LIST_NAME) * list, KEY_TYPE key)               \
   {                                                                            \
-    PUSH_LINK(ITR_BEG(list));                                                  \
+    PUSH_NEW_LINK(ITR_BEG(list));                                              \
     ITR_DEREF(ITR_BEG(list))->key = key;                                       \
   }
 

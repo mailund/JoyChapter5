@@ -6,11 +6,14 @@ project(
 
 include(CTest)
 
-add_library(linked_list static_linked_list.c)
-
-add_executable(linked_list_test linked_list_test.c)
-target_link_libraries(linked_list_test linked_list)
+add_executable(generated_list_test generated_list_test.c)
 add_test(
-    NAME    linked_list_test 
-    COMMAND linked_list_test
+    NAME    generated_list_test 
+    COMMAND generated_list_test
+)
+
+add_executable(generated_hash_test generated_hash_test.c)
+add_test(
+    NAME    generated_hash_test 
+    COMMAND generated_hash_test 19
 )
