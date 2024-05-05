@@ -21,7 +21,7 @@
 #define ITR_DEREF(ITR) (*(ITR))            // Get the current iterator element
 // clang-format on
 
-#define GEN_STRUCTS(LIST_NAME, KEY_TYPE)                                       \
+#define GEN_LIST_STRUCTS(LIST_NAME, KEY_TYPE)                                  \
   struct LIST_NAME##_link {                                                    \
     struct LIST_NAME##_link *next;                                             \
     KEY_TYPE key;                                                              \
@@ -45,14 +45,14 @@
     *(ITR) = next;                                                             \
   } while (0)
 
-#define GEN_ADD_KEY(LIST_NAME, KEY_TYPE)                                       \
+#define GEN_LIST_ADD_KEY(LIST_NAME, KEY_TYPE)                                  \
   void LIST_NAME##_add_key(LIST(LIST_NAME) * list, KEY_TYPE key)               \
   {                                                                            \
     PUSH_NEW_LINK(ITR_BEG(list));                                              \
     ITR_DEREF(ITR_BEG(list))->key = key;                                       \
   }
 
-#define GEN_FREE_LIST(LIST_NAME, KEY_TYPE, FREE_KEY)                           \
+#define GEN_LIST_FREE_LIST(LIST_NAME, KEY_TYPE, FREE_KEY)                      \
   void LIST_NAME##_free_list(LIST(LIST_NAME) * list)                           \
   {                                                                            \
     ITR(list) itr = ITR_BEG(list);                                             \
@@ -62,7 +62,7 @@
     }                                                                          \
   }
 
-#define GEN_DELETE_KEY(LIST_NAME, KEY_TYPE, IS_EQ, FREE_KEY)                   \
+#define GEN_LIST_DELETE_KEY(LIST_NAME, KEY_TYPE, IS_EQ, FREE_KEY)              \
   void LIST_NAME##_delete_key(LIST(LIST_NAME) * list, const KEY_TYPE key)      \
   {                                                                            \
     for (ITR(list) itr = ITR_BEG(list); !ITR_END(itr); itr = ITR_NEXT(itr)) {  \
@@ -74,7 +74,7 @@
     }                                                                          \
   }
 
-#define GEN_CONTAINS_KEY(LIST_NAME, KEY_TYPE, IS_EQ)                           \
+#define GEN_LIST_CONTAINS_KEY(LIST_NAME, KEY_TYPE, IS_EQ)                      \
   bool LIST_NAME##_contains_key(LIST(LIST_NAME) * list, const KEY_TYPE key)    \
   {                                                                            \
     for (ITR(list) itr = ITR_BEG(list); !ITR_END(itr); itr = ITR_NEXT(itr)) {  \
@@ -86,10 +86,10 @@
   }
 
 #define GEN_LIST(LIST_NAME, KEY_TYPE, IS_EQ, FREE_KEY)                         \
-  GEN_STRUCTS(LIST_NAME, KEY_TYPE);                                            \
-  GEN_ADD_KEY(LIST_NAME, KEY_TYPE);                                            \
-  GEN_DELETE_KEY(LIST_NAME, KEY_TYPE, IS_EQ, FREE_KEY);                        \
-  GEN_CONTAINS_KEY(LIST_NAME, KEY_TYPE, IS_EQ);                                \
-  GEN_FREE_LIST(LIST_NAME, KEY_TYPE, FREE_KEY);
+  GEN_LIST_STRUCTS(LIST_NAME, KEY_TYPE);                                       \
+  GEN_LIST_ADD_KEY(LIST_NAME, KEY_TYPE);                                       \
+  GEN_LIST_DELETE_KEY(LIST_NAME, KEY_TYPE, IS_EQ, FREE_KEY);                   \
+  GEN_LIST_CONTAINS_KEY(LIST_NAME, KEY_TYPE, IS_EQ);                           \
+  GEN_LIST_FREE_LIST(LIST_NAME, KEY_TYPE, FREE_KEY);
 
 #endif
