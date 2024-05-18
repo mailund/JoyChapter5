@@ -90,6 +90,39 @@
     }                                                                          \
   }
 
+#define MOVE_LINK(FROM, TO)                                                    \
+  do {                                                                         \
+    typeof(**FROM) *link = *FROM;                                              \
+    *FROM = link->next;                                                        \
+    link->next = *TO;                                                          \
+    *TO = link;                                                                \
+  } while (0)
+
+#define GEN_RESIZE(HASH_NAME, HASH)                                            \
+  void HASH_FN(HASH_NAME, resize)(HTABLE(HASH_NAME) * table,                   \
+                                  unsigned int new_size)                       \
+  {                                                                            \
+    BIN(HASH_NAME) *old_bins = table->bins, *old_from = old_bins,              \
+                   *old_to = old_from + table->size;                           \
+                                                                               \
+    table->bins = malloc(new_size * sizeof *table->bins);                      \
+    table->size = new_size;                                                    \
+    for (BIN(HASH_NAME) *bin = table->bins; bin < table->bins + table->size;   \
+         bin++) {                                                              \
+      bin->head = NULL;                                                        \
+    }                                                                          \
+                                                                               \
+    for (BIN(HASH_NAME) *bin = old_from; bin < old_to; bin++) {                \
+      for (ITR(bin) itr = ITR_BEG(bin); !ITR_END(itr);) {                      \
+        unsigned int hash_key = HASH(ITR_DEREF(itr)->key);                     \
+        MOVE_LINK(itr,                                                         \
+                  ITR_BEG(HASH_FN(HASH_NAME, get_key_bin)(table, hash_key)));  \
+      }                                                                        \
+    }                                                                          \
+                                                                               \
+    free(old_bins);                                                            \
+  }
+
 #define GEN_HASH_TABLE(HASH_NAME, KEY_TYPE, KEY_CMP, HASH, KEY_DESTRUCTOR)     \
   GEN_HASH_STRUCTS(HASH_NAME, KEY_TYPE, KEY_CMP, KEY_DESTRUCTOR)               \
   GEN_GET_KEY_BIN(HASH_NAME)                                                   \
