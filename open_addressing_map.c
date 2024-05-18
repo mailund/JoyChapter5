@@ -12,6 +12,10 @@ unsigned int static p(unsigned int k, unsigned int i, unsigned int m)
   return (k + i) & (m - 1);
 }
 
+void
+add_map_hash(struct hash_table *table, unsigned int hash_key, void *key,
+             void *value);
+
 static void
 init_table(struct hash_table *table, unsigned int size, struct bin *begin,
            struct bin *end)
@@ -30,7 +34,7 @@ init_table(struct hash_table *table, unsigned int size, struct bin *begin,
   // Copy the old bins to the new table
   for (struct bin *bin = begin; bin != end; bin++) {
     if (!bin->is_empty) {
-      add_map(table, bin->key, bin->val); // FIXME: use hash_key from bin
+      add_map_hash(table, bin->hash_key, bin->key, bin->val);
     }
   }
 }
@@ -73,8 +77,44 @@ free_val(struct value_type const *value_type, void *val)
     value_type->del(val);
 }
 
+static inline void
+free_bin(struct hash_table *table, struct bin *bin)
+{
+  if (bin->in_probe && !bin->is_empty) {
+    free_key(table->key_type, bin->key);
+    free_val(table->value_type, bin->val);
+    bin->is_empty = true; // Delete the bin
+    table->active--;      // Same bins in use but one less active
+  }
+}
+
+static inline bool
+key_in_bin(struct hash_table *table, struct bin *bin, unsigned int hash_key,
+           void const *key)
+{
+  return bin->in_probe && bin->hash_key == hash_key &&
+         table->key_type->cmp(bin->key, key);
+}
+
+static inline void
+store_in_bin(struct hash_table *table, struct bin *bin, unsigned int hash_key,
+             void *key, void *value)
+{
+  table->active += bin->is_empty;
+  table->used += !bin->in_probe;
+  if (bin->in_probe && !bin->is_empty) {
+    free_key(table->key_type, bin->key);
+    free_val(table->value_type, bin->val);
+  }
+  *bin = (struct bin){.in_probe = true,
+                      .is_empty = false,
+                      .hash_key = hash_key,
+                      .key = key,
+                      .val = value};
+}
+
 static inline unsigned int
-hash(struct key_type const *key_type, void *key)
+hash(struct key_type const *key_type, void const *key)
 {
   return key_type->hash(key);
 }
@@ -82,12 +122,8 @@ hash(struct key_type const *key_type, void *key)
 void
 delete_table(struct hash_table *table)
 {
-  struct bin *end = table->bins + table->size;
-  for (struct bin *bin = table->bins; bin != end; ++bin) {
-    if (bin->in_probe && !bin->is_empty) {
-      free_key(table->key_type, bin->key);
-      free_val(table->value_type, bin->val);
-    }
+  for (struct bin *bin = table->bins; bin != table->bins + table->size; ++bin) {
+    free_bin(table, bin);
   }
   free(table->bins);
   free(table);
@@ -95,12 +131,25 @@ delete_table(struct hash_table *table)
 
 // Find the bin containing key, or the first bin past the end of its probe
 struct bin *
-find_key(struct hash_table *table, unsigned int hash_key, void *key)
+find_key(struct hash_table *table, unsigned int hash_key, void const *key)
 {
   for (unsigned int i = 0; i < table->size; i++) {
     struct bin *bin = table->bins + p(hash_key, i, table->size);
-    if (!bin->in_probe ||
-        (bin->hash_key == hash_key && table->key_type->cmp(bin->key, bin->val)))
+    if (!bin->in_probe ||                      // end of probe
+        key_in_bin(table, bin, hash_key, key)) // found the key
+      return bin;
+  }
+  // The table is full. This should not happen!
+  assert(false);
+}
+
+// Find the first empty bin in its probe.
+struct bin *
+find_empty(struct hash_table *table, unsigned int hash_key)
+{
+  for (unsigned int i = 0; i < table->size; i++) {
+    struct bin *bin = table->bins + p(hash_key, i, table->size);
+    if (bin->is_empty)
       return bin;
   }
   // The table is full. This should not happen!
@@ -108,86 +157,41 @@ find_key(struct hash_table *table, unsigned int hash_key, void *key)
 }
 
 void
-add_map(struct hash_table *table, void *key, void *value)
+add_map_hash(struct hash_table *table, unsigned int hash_key, void *key,
+             void *value)
 {
-  uint32_t index;
-  unsigned int hash_key = hash(table->key_type, key);
-  bool contains = (bool)lookup_key(table, key); // FIXME: reuse hash_key
-  for (uint32_t i = 0; i < table->size; ++i) {
-    index = p(hash_key, i, table->size);
-    struct bin *bin = &table->bins[index];
-
-    if (!bin->in_probe) {
-      bin->in_probe = true;
-      bin->is_empty = false;
-      bin->hash_key = hash_key;
-      bin->key = key;
-      bin->val = value;
-      // we have one more active element
-      // and one more unused cell changes character
-      table->active++;
-      table->used++;
-      break;
-    }
-
-    if (bin->is_empty && !contains) {
-      bin->is_empty = false;
-      bin->hash_key = hash_key;
-      bin->key = key;
-      bin->val = value;
-      // we have one more active element
-      // but we do not use more cells since the
-      // deleted cell was already used.
-      table->active++;
-      break;
-    }
-
-    if (bin->hash_key == hash_key) {
-      if (table->key_type->cmp(bin->key, key)) {
-        delete_key(table, key);     // FIXME: reuse hash key
-        add_map(table, key, value); // FIXME: reuse hash key
-        return;                     // Done
-      } else {
-        // we have found the key but with a
-        // different value...
-        continue;
-      }
-    }
+  struct bin *bin = find_key(table, hash_key, key);
+  if (!bin->in_probe) {
+    // Reached the end of the probe without finding the key.
+    // Search again to find an empty bin.
+    bin = find_empty(table, hash_key);
   }
+  store_in_bin(table, bin, hash_key, key, value);
 
   if (table->used > table->size / 2)
     resize(table, table->size * 2);
 }
 
 void
-delete_key(struct hash_table *table, void *key)
+add_map(struct hash_table *table, void *key, void *value)
 {
   unsigned int hash_key = hash(table->key_type, key);
-  struct bin *bin = find_key(table, hash_key, key);
-  if (bin->key != key)
-    return; // Nothing more to do
+  add_map_hash(table, hash_key, key, value);
+}
 
-  bin->is_empty = true; // Delete the bin
-  table->active--;      // Same bins in use but one less active
-
+void
+delete_key(struct hash_table *table, void const *key)
+{
+  unsigned int hash_key = hash(table->key_type, key);
+  free_bin(table, find_key(table, hash_key, key));
   if (table->active < table->size / 8 && table->size > MIN_SIZE)
     resize(table, table->size / 2);
 }
 
-void *
-lookup_key(struct hash_table *table, void *key)
+void *const
+lookup_key(struct hash_table *table, void const *key)
 {
-  unsigned int hash_key = hash(table->key_type, key); // FIXME reuse
-  for (uint32_t i = 0; i < table->size; ++i) {
-    uint32_t index = p(hash_key, i, table->size);
-    struct bin *bin = &table->bins[index];
-
-    if (!bin->in_probe)
-      return 0;
-
-    if (!bin->is_empty && bin->hash_key == hash_key &&
-        table->key_type->cmp(bin->key, key))
-      return bin->val;
-  }
-  return 0;
+  unsigned int hash_key = hash(table->key_type, key);
+  struct bin *bin = find_key(table, hash_key, key);
+  return bin->in_probe ? bin->val : NULL;
 }

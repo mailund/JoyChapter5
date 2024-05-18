@@ -5,9 +5,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef unsigned int (*hash_func)(void *);
+typedef unsigned int (*hash_func)(void const *);
 typedef void (*destructor_func)(void *);
-typedef bool (*compare_func)(void *, void *);
+typedef bool (*compare_func)(void const *, void const *);
 
 struct key_type {
   hash_func hash;
@@ -46,8 +46,8 @@ delete_table(struct hash_table *table);
 void
 add_map(struct hash_table *table, void *key, void *value);
 void
-delete_key(struct hash_table *table, void *key);
-void *
-lookup_key(struct hash_table *table, void *key);
+delete_key(struct hash_table *table, void const *key);
+void *const
+lookup_key(struct hash_table *table, void const *key);
 
 #endif

@@ -14,7 +14,7 @@ random_key()
 }
 
 static bool
-compare_keys(void *ap, void *bp)
+compare_keys(void const *ap, void const *bp)
 {
   uint32_t a = *(uint32_t *)ap;
   uint32_t b = *(uint32_t *)bp;
