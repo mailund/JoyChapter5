@@ -17,3 +17,9 @@ add_test(
     NAME    generated_hash_test 
     COMMAND generated_hash_test 19
 )
+
+add_executable(open_addressing_map_test open_addressing_map_test.c open_addressing_map.c)
+add_test(
+    NAME    open_addressing_map_test 
+    COMMAND generated_hash_test 19
+)
