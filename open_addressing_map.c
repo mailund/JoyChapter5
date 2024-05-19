@@ -73,15 +73,13 @@ hash(struct hash_table *table, void const *key)
 static inline void
 free_key(struct hash_table *table, void *key)
 {
-  if (table->key_type->del)
-    table->key_type->del(key);
+  table->key_type->del(key);
 }
 
 static inline void
 free_val(struct hash_table *table, void *val)
 {
-  if (table->value_type->del)
-    table->value_type->del(val);
+  table->value_type->del(val);
 }
 
 #define HASH(KEY) hash(table, (KEY))
