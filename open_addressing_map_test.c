@@ -64,6 +64,10 @@ test_intp(int no_elms)
   printf("%g\n", elapsed_time);
 
   free(keys);
+
+  printf("active: %u\n", map->active);
+  printf("used: %u\n", map->used);
+
   delete_table(map);
 }
 

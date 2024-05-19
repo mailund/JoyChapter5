@@ -115,8 +115,8 @@ static inline void
 store_in_bin(struct hash_table *table, struct bin *bin, unsigned int hash_key,
              void *key, void *value)
 {
-  table->active += bin->is_empty; // FIXME: this isn't as clear as it should be
-  table->used += !bin->in_probe;  // FIXME: this isn't as clear as it should be
+  table->active += !!bin->is_empty; // inc if the bin is empty
+  table->used += !bin->in_probe;    // inc if the bin hasn't been used before
   free_bin(table, bin);
   *bin = (struct bin){.in_probe = true,
                       .is_empty = false,
