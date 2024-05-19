@@ -21,9 +21,10 @@ init_table(struct hash_table *table, unsigned int size, struct bin *begin,
            struct bin *end)
 {
   // Initialize table members
-  struct bin *bins = malloc(size * sizeof *bins);
-  *table =
-      (struct hash_table){.bins = bins, .size = size, .used = 0, .active = 0};
+  table->bins = malloc(size * sizeof *table->bins);
+  table->size = size;
+  table->used = 0;
+  table->active = 0;
 
   // Initialize bins
   struct bin empty_bin = {.in_probe = false, .is_empty = true};
@@ -57,32 +58,46 @@ struct hash_table *
 new_table(struct key_type const *key_type, struct value_type const *value_type)
 {
   struct hash_table *table = malloc(sizeof *table);
-  init_table(table, MIN_SIZE, NULL, NULL);
   table->key_type = key_type;
   table->value_type = value_type;
+  init_table(table, MIN_SIZE, NULL, NULL);
   return table;
 }
 
-static inline void
-free_key(struct key_type const *key_type, void *key)
+static inline unsigned int
+hash(struct hash_table *table, void const *key)
 {
-  if (key_type->del)
-    key_type->del(key);
+  return table->key_type->hash(key);
 }
 
 static inline void
-free_val(struct value_type const *value_type, void *val)
+free_key(struct hash_table *table, void *key)
 {
-  if (value_type->del)
-    value_type->del(val);
+  if (table->key_type->del)
+    table->key_type->del(key);
+}
+
+static inline void
+free_val(struct hash_table *table, void *val)
+{
+  if (table->value_type->del)
+    table->value_type->del(val);
+}
+
+#define HASH(KEY) hash(table, (KEY))
+
+static inline bool
+is_active_bin(struct bin *bin)
+{
+  return bin->in_probe && !bin->is_empty;
 }
 
 static inline void
 free_bin(struct hash_table *table, struct bin *bin)
 {
-  if (bin->in_probe && !bin->is_empty) {
-    free_key(table->key_type, bin->key);
-    free_val(table->value_type, bin->val);
+  if (is_active_bin(bin)) {
+    free_key(table, bin->key);
+    free_val(table, bin->val);
     bin->is_empty = true; // Delete the bin
     table->active--;      // Same bins in use but one less active
   }
@@ -92,7 +107,7 @@ static inline bool
 key_in_bin(struct hash_table *table, struct bin *bin, unsigned int hash_key,
            void const *key)
 {
-  return bin->in_probe && bin->hash_key == hash_key &&
+  return is_active_bin(bin) && bin->hash_key == hash_key &&
          table->key_type->cmp(bin->key, key);
 }
 
@@ -100,23 +115,14 @@ static inline void
 store_in_bin(struct hash_table *table, struct bin *bin, unsigned int hash_key,
              void *key, void *value)
 {
-  table->active += bin->is_empty;
-  table->used += !bin->in_probe;
-  if (bin->in_probe && !bin->is_empty) {
-    free_key(table->key_type, bin->key);
-    free_val(table->value_type, bin->val);
-  }
+  table->active += bin->is_empty; // FIXME: this isn't as clear as it should be
+  table->used += !bin->in_probe;  // FIXME: this isn't as clear as it should be
+  free_bin(table, bin);
   *bin = (struct bin){.in_probe = true,
                       .is_empty = false,
                       .hash_key = hash_key,
                       .key = key,
                       .val = value};
-}
-
-static inline unsigned int
-hash(struct key_type const *key_type, void const *key)
-{
-  return key_type->hash(key);
 }
 
 void
@@ -129,18 +135,19 @@ delete_table(struct hash_table *table)
   free(table);
 }
 
-// Find the bin containing key, or the first bin past the end of its probe
+// Find the bin containing key, or the first bin past the end of its probe.
+// It will never return a bin that is in a probe and empty, since those
+// cannot contain the key and if we need an empty bin we will search for
+// the earliest in the probe using find_empty().
 struct bin *
 find_key(struct hash_table *table, unsigned int hash_key, void const *key)
 {
   for (unsigned int i = 0; i < table->size; i++) {
     struct bin *bin = table->bins + p(hash_key, i, table->size);
-    if (!bin->in_probe ||                      // end of probe
+    if (!bin->in_probe ||                      // end of probe, or
         key_in_bin(table, bin, hash_key, key)) // found the key
       return bin;
   }
-  // The table is full. This should not happen!
-  assert(false);
 }
 
 // Find the first empty bin in its probe.
@@ -152,8 +159,6 @@ find_empty(struct hash_table *table, unsigned int hash_key)
     if (bin->is_empty)
       return bin;
   }
-  // The table is full. This should not happen!
-  assert(false);
 }
 
 void
@@ -161,11 +166,9 @@ add_map_hash(struct hash_table *table, unsigned int hash_key, void *key,
              void *value)
 {
   struct bin *bin = find_key(table, hash_key, key);
-  if (!bin->in_probe) {
-    // Reached the end of the probe without finding the key.
-    // Search again to find an empty bin.
-    bin = find_empty(table, hash_key);
-  }
+  bin = bin->in_probe ? bin // bin with key or empty
+                      : find_empty(table, hash_key);
+
   store_in_bin(table, bin, hash_key, key, value);
 
   if (table->used > table->size / 2)
@@ -175,15 +178,15 @@ add_map_hash(struct hash_table *table, unsigned int hash_key, void *key,
 void
 add_map(struct hash_table *table, void *key, void *value)
 {
-  unsigned int hash_key = hash(table->key_type, key);
-  add_map_hash(table, hash_key, key, value);
+  add_map_hash(table, hash(table, key), key, value);
 }
 
 void
 delete_key(struct hash_table *table, void const *key)
 {
-  unsigned int hash_key = hash(table->key_type, key);
-  free_bin(table, find_key(table, hash_key, key));
+  struct bin *bin = find_key(table, hash(table, key), key);
+  free_bin(table, bin);
+
   if (table->active < table->size / 8 && table->size > MIN_SIZE)
     resize(table, table->size / 2);
 }
@@ -191,7 +194,6 @@ delete_key(struct hash_table *table, void const *key)
 void *const
 lookup_key(struct hash_table *table, void const *key)
 {
-  unsigned int hash_key = hash(table->key_type, key);
-  struct bin *bin = find_key(table, hash_key, key);
+  struct bin *bin = find_key(table, hash(table, key), key);
   return bin->in_probe ? bin->val : NULL;
 }

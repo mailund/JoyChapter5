@@ -15,11 +15,11 @@ add_test(
 add_executable(generated_hash_test generated_hash_test.c)
 add_test(
     NAME    generated_hash_test 
-    COMMAND generated_hash_test 19
+    COMMAND generated_hash_test 191
 )
 
 add_executable(open_addressing_map_test open_addressing_map_test.c open_addressing_map.c)
 add_test(
     NAME    open_addressing_map_test 
-    COMMAND generated_hash_test 19
+    COMMAND open_addressing_map_test 191
 )

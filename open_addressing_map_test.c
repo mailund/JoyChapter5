@@ -21,22 +21,24 @@ compare_keys(void const *ap, void const *bp)
   return a == b;
 }
 
-struct key_type ui32_type = {.cmp = compare_keys, .del = NULL};
-
-int
-main(int argc, const char *argv[])
+unsigned int
+hash(void const *key)
 {
-  if (argc != 2) {
-    printf("Usage: %s no_elements\n", argv[0]);
-    return EXIT_FAILURE;
-  }
+  return *(uint32_t *)key ^ 0xdeadbeef;
+}
 
-  int no_elms = atoi(argv[1]);
+struct key_type ui32_key_type = {
+    .cmp = compare_keys, .del = NULL, .hash = hash};
+struct value_type ui32_val_type = {.del = NULL};
+
+static void
+test_intp(int no_elms)
+{
   uint32_t *keys = (uint32_t *)malloc(no_elms * sizeof(uint32_t));
   for (int i = 0; i < no_elms; ++i) {
     keys[i] = random_key();
   }
-  struct hash_table *map = new_table(&ui32_type, 0);
+  struct hash_table *map = new_table(&ui32_key_type, &ui32_val_type);
   clock_t start = clock();
   for (int i = 0; i < no_elms; ++i) {
     add_map(map, &keys[i], &keys[i]);
@@ -63,6 +65,18 @@ main(int argc, const char *argv[])
 
   free(keys);
   delete_table(map);
+}
+
+int
+main(int argc, const char *argv[])
+{
+  if (argc != 2) {
+    printf("Usage: %s no_elements\n", argv[0]);
+    return EXIT_FAILURE;
+  }
+
+  int no_elms = atoi(argv[1]);
+  test_intp(no_elms);
 
   return EXIT_SUCCESS;
 }
