@@ -18,6 +18,12 @@ nop_del(void *p)
 {
 }
 
+static void *
+nop_cpy(void const *p)
+{
+  return (void *)p;
+}
+
 static bool
 compare_keys(void const *ap, void const *bp)
 {
@@ -29,12 +35,13 @@ compare_keys(void const *ap, void const *bp)
 unsigned int
 hash(void const *key)
 {
+  // truely stupid hash but we need something for the test
   return *(uint32_t *)key ^ 0xdeadbeef;
 }
 
 struct key_type ui32_key_type = {
-    .cmp = compare_keys, .del = nop_del, .hash = hash};
-struct value_type ui32_val_type = {.del = nop_del};
+    .cmp = compare_keys, .del = nop_del, .hash = hash, .cpy = nop_cpy};
+struct value_type ui32_val_type = {.del = nop_del, .cpy = nop_cpy};
 
 static void
 test_intp(int no_elms)

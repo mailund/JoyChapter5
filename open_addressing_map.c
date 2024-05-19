@@ -13,8 +13,8 @@ unsigned int static p(unsigned int k, unsigned int i, unsigned int m)
 }
 
 void
-add_map_hash(struct hash_table *table, unsigned int hash_key, void *key,
-             void *value);
+add_map_hash(struct hash_table *table, unsigned int hash_key, void const *key,
+             void const *value);
 
 static void
 init_table(struct hash_table *table, unsigned int size, struct bin *begin,
@@ -70,6 +70,18 @@ hash(struct hash_table *table, void const *key)
   return table->key_type->hash(key);
 }
 
+static inline void *
+copy_key(struct hash_table *table, void const *key)
+{
+  return table->key_type->cpy(key);
+}
+
+static inline void *
+copy_val(struct hash_table *table, void const *val)
+{
+  return table->value_type->cpy(val);
+}
+
 static inline void
 free_key(struct hash_table *table, void *key)
 {
@@ -81,8 +93,6 @@ free_val(struct hash_table *table, void *val)
 {
   table->value_type->del(val);
 }
-
-#define HASH(KEY) hash(table, (KEY))
 
 static inline bool
 is_active_bin(struct bin *bin)
@@ -113,14 +123,19 @@ static inline void
 store_in_bin(struct hash_table *table, struct bin *bin, unsigned int hash_key,
              void *key, void *value)
 {
+  // Update counters based on current state of bin.
   table->active += !!bin->is_empty; // inc if the bin is empty
   table->used += !bin->in_probe;    // inc if the bin hasn't been used before
+
+  // Free any key or value currently in the bin.
   free_bin(table, bin);
-  *bin = (struct bin){.in_probe = true,
-                      .is_empty = false,
-                      .hash_key = hash_key,
-                      .key = key,
-                      .val = value};
+
+  // Store the new key and value in the bin.
+  bin->in_probe = true;
+  bin->is_empty = false;
+  bin->hash_key = hash_key;
+  bin->key = key;
+  bin->val = value;
 }
 
 void
@@ -160,21 +175,22 @@ find_empty(struct hash_table *table, unsigned int hash_key)
 }
 
 void
-add_map_hash(struct hash_table *table, unsigned int hash_key, void *key,
-             void *value)
+add_map_hash(struct hash_table *table, unsigned int hash_key, void const *key,
+             void const *value)
 {
   struct bin *bin = find_key(table, hash_key, key);
   bin = bin->in_probe ? bin // bin with key or empty
                       : find_empty(table, hash_key);
 
-  store_in_bin(table, bin, hash_key, key, value);
+  store_in_bin(table, bin, hash_key, copy_key(table, key),
+               copy_val(table, value));
 
   if (table->used > table->size / 2)
     resize(table, table->size * 2);
 }
 
 void
-add_map(struct hash_table *table, void *key, void *value)
+add_map(struct hash_table *table, void const *key, void const *value)
 {
   add_map_hash(table, hash(table, key), key, value);
 }
