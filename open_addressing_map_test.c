@@ -32,27 +32,32 @@ str_dup(const void *p)
   return new;
 }
 
-static void
-nop_del(void *p)
-{
-}
-
 static void *
-nop_cpy(void const *p)
+u32_dup(void const *p)
 {
-  return (void *)p;
+  uint32_t *new = malloc(sizeof(uint32_t));
+  *new = *(uint32_t *)p;
+  return new;
 }
 
 static bool
-compare_keys(void const *ap, void const *bp)
+u32_cmp(void const *ap, void const *bp)
 {
   uint32_t a = *(uint32_t *)ap;
   uint32_t b = *(uint32_t *)bp;
   return a == b;
 }
 
+static bool
+str_cmp(void const *ap, void const *bp)
+{
+  char *a = (char *)ap;
+  char *b = (char *)bp;
+  return strcmp(a, b) == 0;
+}
+
 unsigned int
-hash(void const *key)
+u32_hash(void const *key)
 {
   // truely stupid hash but we need something for the test
   return *(uint32_t *)key ^ 0xdeadbeef;
@@ -71,11 +76,11 @@ str_hash(void const *p)
 }
 
 struct key_type ui32_key_type = {
-    .cmp = compare_keys, .del = nop_del, .hash = hash, .cpy = nop_cpy};
-struct value_type ui32_val_type = {.del = nop_del, .cpy = nop_cpy};
+    .cmp = u32_cmp, .del = free, .hash = u32_hash, .cpy = u32_dup};
+struct value_type ui32_val_type = {.del = free, .cpy = u32_dup};
 
 struct key_type str_key_type = {
-    .cmp = compare_keys, .del = free, .hash = str_hash, .cpy = str_dup};
+    .cmp = str_cmp, .del = free, .hash = str_hash, .cpy = str_dup};
 struct value_type str_val_type = {.del = free, .cpy = str_dup};
 
 static void
@@ -92,7 +97,7 @@ test_intp(int no_elms)
   }
   for (int i = 0; i < no_elms; ++i) {
     void *val = lookup_key(map, &keys[i]);
-    assert(val == &keys[i]);
+    assert(u32_cmp(val, &keys[i]));
   }
   uint32_t unused_key = 0;
   for (int i = 0; i < no_elms; ++i) {

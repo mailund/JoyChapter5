@@ -23,3 +23,5 @@ add_test(
     NAME    open_addressing_map_test 
     COMMAND open_addressing_map_test 191
 )
+
+add_executable(str2int str2int.c open_addressing_map.c)

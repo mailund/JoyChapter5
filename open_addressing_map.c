@@ -161,6 +161,7 @@ find_key(struct hash_table *table, unsigned int hash_key, void const *key)
         key_in_bin(table, bin, hash_key, key)) // found the key
       return bin;
   }
+  assert(false); // We should never get here
 }
 
 // Find the first empty bin in its probe.
@@ -172,6 +173,7 @@ find_empty(struct hash_table *table, unsigned int hash_key)
     if (bin->is_empty)
       return bin;
   }
+  assert(false); // We should never get here
 }
 
 void

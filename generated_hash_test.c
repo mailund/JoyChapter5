@@ -93,7 +93,7 @@ test_int_table(int no_elms)
 // through the generated list code).
 #define STR_EQ(A, B) (strcmp(A, B) == 0)
 unsigned int
-hash(char *x)
+u32_hash(char *x)
 {
   unsigned int h = 0;
   for (char *p = x; *p; p++) {
@@ -101,7 +101,7 @@ hash(char *x)
   }
   return h;
 }
-GEN_HASH_TABLE(string, char *, STR_EQ, hash, free);
+GEN_HASH_TABLE(string, char *, STR_EQ, u32_hash, free);
 
 void
 test_string_table(int no_elms)
