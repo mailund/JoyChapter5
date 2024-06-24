@@ -7,22 +7,6 @@
 #include <string.h>
 #include <time.h>
 
-static uint32_t
-random_key()
-{
-  uint32_t key = (uint32_t)random();
-  return key;
-}
-
-char *
-itoa(unsigned int i)
-{
-  // Not super safe itoa, but good enough for an example like this.
-  char *buf = malloc(sizeof(char) * 20);
-  sprintf(buf, "%d", i);
-  return buf;
-}
-
 static void *
 u32_dup(void const *p)
 {
@@ -35,8 +19,10 @@ void *
 str_dup(const void *p)
 {
   const char *s = p;
-  char *new = malloc(strlen(s) + 1);
-  strcpy(new, s);
+  size_t len = strlen(s);
+  char *new = malloc(len + 1);
+  strncpy(new, s, len);
+  new[len] = '\0';
   return new;
 }
 
@@ -88,6 +74,11 @@ main(int argc, const char *argv[])
 
   assert(*(uint32_t *)lookup_key(map, "foo") == 13);
   assert(*(uint32_t *)lookup_key(map, "bar") == 42);
+
+  int i = *(int *)lookup_key(map, "foo");
+  printf("i = %d\n", i);
+  int j = *(int *)lookup_key(map, "bar");
+  printf("j = %d\n", j);
 
   delete_table(map);
 
